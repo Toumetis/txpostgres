@@ -506,15 +506,27 @@ class Connection(_PollingMixin):
         It is safe to call this method multiple times without waiting for the
         first query to complete.
 
+        By default the returned deferred will fire with the result of the
+        cursor's :meth:`fetchall`. This can be changed by passing a keyword
+        parameter __txpostgres_callback containing a function that will be
+        called with the cursor. The returned deferred object will fire with
+        the value returned by the callback.
+
         :return: A :d:`Deferred` that will fire with the return value of the
-            cursor's :meth:`fetchall` method.
+            cursor's :meth:`fetchall` method or the callback passed in
+            __txpostgres_callback.
         """
         return self._doit(self._runQuery, *args, **kwargs)
 
     def _runQuery(self, *args, **kwargs):
+        if '__txpostgres_callback' in kwargs:
+            callback = kwargs.pop('__txpostgres_callback')
+        else:
+            callback = lambda c: c.fetchall()
+
         c = self.cursor()
         d = c.execute(*args, **kwargs)
-        return d.addCallback(lambda c: c.fetchall())
+        return d.addCallback(callback)
 
     def runOperation(self, *args, **kwargs):
         """
